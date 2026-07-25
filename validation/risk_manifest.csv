@@ -1,0 +1,11 @@
+filename,flag,expected,from_rep,to_rep,notes
+clean_5reps.mp4,asymmetry,no,1,,symmetric control -- should never flag
+clean_5reps.mp4,instability,no,1,,steady control -- should never flag
+clean_5reps.mp4,depth_drop,no,4,,consistent reps -- baseline reps (1-3) skipped, later reps should still match baseline
+clean_5reps.mp4,speed_drop,no,4,,consistent reps -- baseline reps (1-3) skipped, later reps should still match baseline
+asymmetry_bad.mp4,asymmetry,yes,1,,deliberately favor one leg / uneven depth left vs right
+instability_bad.mp4,instability,yes,1,,deliberate wobble/sway while standing or at the bottom
+fatigue_session.mp4,depth_drop,no,1,3,baseline reps -- can't fire yet, no baseline exists
+fatigue_session.mp4,speed_drop,no,1,3,baseline reps -- can't fire yet, no baseline exists
+fatigue_session.mp4,depth_drop,yes,4,,later reps deliberately shallower than the baseline
+fatigue_session.mp4,speed_drop,yes,4,,later reps deliberately slower than the baseline

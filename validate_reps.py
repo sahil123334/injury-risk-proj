@@ -100,7 +100,10 @@ def extract_angle_stream(path: str) -> AngleStream:
             if raw_angles is None:
                 continue
 
-            smoothed = smoother.update(raw_angles.left, raw_angles.right)
+            smoothed = smoother.update(
+                raw_angles.left, raw_angles.right,
+                raw_angles.left_confidence, raw_angles.right_confidence,
+            )
             stream.append((elapsed, smoothed.mean))
 
     source.release()

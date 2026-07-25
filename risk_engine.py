@@ -24,6 +24,14 @@ from typing import List, Optional
 import config
 from rep_tracker import RepState
 
+# Exposed as constants (not just inline strings in evaluate()) so
+# validate_risk.py can check for a specific flag reliably instead of
+# duplicating the exact wording.
+REASON_ASYMMETRY = "left/right asymmetry"
+REASON_INSTABILITY = "angle instability"
+REASON_DEPTH_DROP = "form degradation: shallower reps"
+REASON_SPEED_DROP = "fatigue proxy: slower reps"
+
 
 @dataclass
 class RiskAssessment:
@@ -80,7 +88,7 @@ class RiskEngine:
 
         if asymmetry > self._asymmetry_threshold:
             score += 1
-            reasons.append("left/right asymmetry")
+            reasons.append(REASON_ASYMMETRY)
 
         # Angle variance is naturally high while actively descending/ascending
         # through a squat -- that's real motion, not instability. Only treat
@@ -88,14 +96,14 @@ class RiskEngine:
         # near standing or near the bottom of the rep.
         if rep_state in (RepState.STANDING, RepState.BOTTOM) and variance > self._variance_threshold:
             score += 1
-            reasons.append("angle instability")
+            reasons.append(REASON_INSTABILITY)
 
         depth_drop = 0.0
         if baseline_depth is not None and len(rep_depths) > baseline_reps and rep_depths:
             depth_drop = rep_depths[-1] - baseline_depth
             if depth_drop > self._depth_drop_threshold:
                 score += 1
-                reasons.append("form degradation: shallower reps")
+                reasons.append(REASON_DEPTH_DROP)
 
         speed_drop_pct = 0.0
         if (
@@ -107,7 +115,7 @@ class RiskEngine:
             speed_drop_pct = (baseline_speed - rep_speeds[-1]) / baseline_speed
             if speed_drop_pct > self._speed_drop_threshold:
                 score += 1
-                reasons.append("fatigue proxy: slower reps")
+                reasons.append(REASON_SPEED_DROP)
 
         if score >= self._high_score:
             label, status_text = "RED", "REVIEW RECOMMENDED"

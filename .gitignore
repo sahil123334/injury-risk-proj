@@ -6,3 +6,6 @@ data/*.html
 .DS_Store
 validation/clips/*.mp4
 validation/clips/*.mov
+.coverage
+.pytest_cache/
+htmlcov/

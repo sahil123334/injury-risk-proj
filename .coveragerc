@@ -1,0 +1,11 @@
+[run]
+omit =
+    tests/*
+    .venv/*
+    injury_risk_mvp.py
+    injury_risk_mvp_backup.py
+
+[report]
+exclude_lines =
+    pragma: no cover
+    if __name__ == .__main__.:

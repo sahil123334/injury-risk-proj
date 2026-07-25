@@ -215,7 +215,10 @@ def main() -> int:
                         # low confidence rather than computing a garbage angle.
                         ui.draw_low_confidence_overlay(frame, reading.confidence)
                     else:
-                        smoothed = smoother.update(raw_angles.left, raw_angles.right)
+                        smoothed = smoother.update(
+                            raw_angles.left, raw_angles.right,
+                            raw_angles.left_confidence, raw_angles.right_confidence,
+                        )
                         dt = 0.0 if last_valid_elapsed is None else max(elapsed - last_valid_elapsed, 0.0)
                         last_valid_elapsed = elapsed
 

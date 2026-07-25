@@ -1,5 +1,7 @@
 # KinetIQ
 
+![Tests](https://github.com/sahil123334/injury-risk-proj/actions/workflows/tests.yml/badge.svg)
+
 Movement-quality / fatigue monitor (prototype).
 
 A webcam-based computer-vision prototype that tracks squat reps via
@@ -117,6 +119,24 @@ any time -- or let an uploaded video play to its end.
 - `data/session_metrics.csv` — one row per analyzed frame (calibration + tracking phases).
 - `data/rep_summary.csv` — one row per completed rep: depth, total/eccentric/concentric duration, speed, and the movement-quality flags active at that moment.
 - `data/session_report.html` — charts for knee angle, asymmetry, and per-rep depth/duration, plus download buttons for both CSVs above. Regenerated (overwritten) every run; opened via the **View full report** button in the session-complete popup, not automatically.
+
+## Testing
+
+The core algorithm modules (`biomechanics.py`, `calibration.py`,
+`rep_tracker.py`, `risk_engine.py`, `naive_rep_counter.py`) are pure
+logic with no camera/GUI dependency, so they're covered by a real unit
+test suite -- 63 tests, 97% statement coverage across those 5 modules.
+UI/camera/file-I/O code (`main.py`, `ui.py`, `video_source.py`, etc.) is
+covered by the manual/scripted verification described throughout this
+README instead, since it needs a real display or camera to exercise.
+
+```bash
+source .venv/bin/activate
+pip install pytest pytest-cov
+python -m pytest tests/ --cov=. --cov-report=term-missing
+```
+
+Runs automatically on every push via GitHub Actions (`.github/workflows/tests.yml`).
 
 ## Known limitations (read before trusting the output)
 

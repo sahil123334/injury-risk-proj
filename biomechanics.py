@@ -5,6 +5,15 @@ Pure math: turning landmark coordinates into joint angles, and smoothing
 those angles over a short rolling window. Nothing in this file knows
 about MediaPipe, calibration, reps, or risk -- it only deals in floats
 and points, so it has no dependency on any other project module.
+
+Smoothing is confidence-weighted: each frame's contribution to the
+rolling average is scaled by that leg's landmark visibility for that
+frame, instead of every frame counting equally. A flat average lets a
+single low-confidence frame (dim lighting, partial occlusion, standing
+farther from the camera) drag the smoothed angle around just as much as
+a fully-visible frame; weighting by confidence means unreliable frames
+still contribute, but proportionally less, which is exactly the
+condition under which false asymmetry/instability flags are most likely.
 """
 
 from collections import deque
@@ -14,7 +23,7 @@ from typing import Optional, Tuple
 import numpy as np
 
 import config
-from pose_detector import get_point
+from pose_detector import average_visibility, get_point
 
 Point = Tuple[float, float]
 
@@ -47,10 +56,12 @@ def angle_between_three_points(a: Point, b: Point, c: Point) -> Optional[float]:
 class RawKneeAngles:
     left: float
     right: float
+    left_confidence: float = 1.0
+    right_confidence: float = 1.0
 
 
 def compute_knee_angles(landmarks, width: int, height: int) -> Optional[RawKneeAngles]:
-    """Hip-knee-ankle angle for each leg. None if either angle is degenerate."""
+    """Hip-knee-ankle angle and landmark-visibility confidence for each leg. None if either angle is degenerate."""
     left_hip = get_point(landmarks, config.LEFT_HIP, width, height)
     left_knee = get_point(landmarks, config.LEFT_KNEE, width, height)
     left_ankle = get_point(landmarks, config.LEFT_ANKLE, width, height)
@@ -65,7 +76,12 @@ def compute_knee_angles(landmarks, width: int, height: int) -> Optional[RawKneeA
     if left_angle is None or right_angle is None:
         return None
 
-    return RawKneeAngles(left=left_angle, right=right_angle)
+    return RawKneeAngles(
+        left=left_angle,
+        right=right_angle,
+        left_confidence=average_visibility(landmarks, config.LEFT_LEG_LANDMARKS),
+        right_confidence=average_visibility(landmarks, config.RIGHT_LEG_LANDMARKS),
+    )
 
 
 @dataclass
@@ -74,34 +90,63 @@ class SmoothedAngles:
     right: float
     mean: float
     asymmetry: float
-    variance: float  # std-dev of the recent smoothed mean-angle history
+    variance: float  # confidence-weighted std-dev of the recent smoothed mean-angle history
+
+
+def _weighted_mean(values: Tuple[float, ...], weights: Tuple[float, ...]) -> float:
+    total_weight = sum(weights)
+    if total_weight <= 1e-6:
+        # Every frame in the window was essentially unreadable -- fall back
+        # to a flat average rather than dividing by ~zero.
+        return float(np.mean(values))
+    return float(sum(v * w for v, w in zip(values, weights)) / total_weight)
+
+
+def _weighted_std(values: Tuple[float, ...], weights: Tuple[float, ...]) -> float:
+    total_weight = sum(weights)
+    if total_weight <= 1e-6:
+        return float(np.std(values))
+    mean = _weighted_mean(values, weights)
+    variance = sum(w * (v - mean) ** 2 for v, w in zip(values, weights)) / total_weight
+    return float(variance ** 0.5)
 
 
 class AngleSmoother:
     """
-    Rolling moving-average filter over the last `window` frames.
+    Confidence-weighted rolling average over the last `window` frames.
     Equivalent to a fixed-size ring buffer in C++ -- `deque(maxlen=...)`
     automatically drops the oldest sample once it's full.
     """
 
     def __init__(self, window: int = config.ANGLE_WINDOW):
-        self._left_hist: deque = deque(maxlen=window)
-        self._right_hist: deque = deque(maxlen=window)
-        self._mean_hist: deque = deque(maxlen=window)
+        self._left_hist: deque = deque(maxlen=window)   # (angle, confidence)
+        self._right_hist: deque = deque(maxlen=window)  # (angle, confidence)
+        self._mean_hist: deque = deque(maxlen=window)    # (mean_angle, combined_confidence)
 
-    def update(self, left_angle: float, right_angle: float) -> SmoothedAngles:
+    def update(
+        self,
+        left_angle: float,
+        right_angle: float,
+        left_confidence: float = 1.0,
+        right_confidence: float = 1.0,
+    ) -> SmoothedAngles:
         mean_angle = (left_angle + right_angle) / 2.0
+        combined_confidence = (left_confidence + right_confidence) / 2.0
 
-        self._left_hist.append(left_angle)
-        self._right_hist.append(right_angle)
-        self._mean_hist.append(mean_angle)
+        self._left_hist.append((left_angle, left_confidence))
+        self._right_hist.append((right_angle, right_confidence))
+        self._mean_hist.append((mean_angle, combined_confidence))
 
-        smooth_left = float(np.mean(self._left_hist))
-        smooth_right = float(np.mean(self._right_hist))
-        smooth_mean = float(np.mean(self._mean_hist))
+        left_values, left_weights = zip(*self._left_hist)
+        right_values, right_weights = zip(*self._right_hist)
+        mean_values, mean_weights = zip(*self._mean_hist)
+
+        smooth_left = _weighted_mean(left_values, left_weights)
+        smooth_right = _weighted_mean(right_values, right_weights)
+        smooth_mean = (smooth_left + smooth_right) / 2.0
 
         asymmetry = abs(smooth_left - smooth_right)
-        variance = float(np.std(self._mean_hist)) if len(self._mean_hist) > 1 else 0.0
+        variance = _weighted_std(mean_values, mean_weights) if len(self._mean_hist) > 1 else 0.0
 
         return SmoothedAngles(
             left=smooth_left,
