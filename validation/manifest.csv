@@ -1,0 +1,7 @@
+filename,true_reps,is_calibration_source,notes
+calibration.mp4,3,true,3 clean deep reps; used only to derive thresholds
+clean_5reps.mp4,5,false,5 clean reps at a normal, controlled tempo
+jittery_5reps.mp4,4,false,4 real reps with natural wobble/hesitation near the bottom (corrected from self-count of 5)
+pause_at_bottom.mp4,4,false,4 reps each held at the bottom for 2-3 seconds (corrected from self-count of 3)
+fast_reps.mp4,5,false,5 reps done quickly, minimal pause at top or bottom
+no_rep_shallow_dip.mp4,0,false,shallow dips that never reach full depth -- should count as zero reps

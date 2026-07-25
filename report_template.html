@@ -1,0 +1,635 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>KinetIQ -- Session Report</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --surface-1:      #fcfcfb;
+    --page-plane:     #f9f9f7;
+    --text-primary:   #0b0b0b;
+    --text-secondary: #52514e;
+    --muted:          #898781;
+    --grid:           #e1e0d9;
+    --baseline:       #c3c2b7;
+    --border:         rgba(11,11,11,0.10);
+    --series-1:       #2a78d6; /* blue */
+    --series-2:       #008300; /* green */
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --critical:       #d03b3b;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .viz-root {
+      color-scheme: dark;
+      --surface-1:      #1a1a19;
+      --page-plane:     #0d0d0d;
+      --text-primary:   #ffffff;
+      --text-secondary: #c3c2b7;
+      --muted:          #898781;
+      --grid:           #2c2c2a;
+      --baseline:       #383835;
+      --border:         rgba(255,255,255,0.10);
+      --series-1:       #3987e5;
+      --series-2:       #008300;
+      --good:           #0ca30c;
+      --warning:        #fab219;
+      --critical:       #e66767;
+    }
+  }
+  :root[data-theme="dark"] .viz-root {
+    color-scheme: dark;
+    --surface-1:      #1a1a19;
+    --page-plane:     #0d0d0d;
+    --text-primary:   #ffffff;
+    --text-secondary: #c3c2b7;
+    --muted:          #898781;
+    --grid:           #2c2c2a;
+    --baseline:       #383835;
+    --border:         rgba(255,255,255,0.10);
+    --series-1:       #3987e5;
+    --series-2:       #008300;
+    --good:           #0ca30c;
+    --warning:        #fab219;
+    --critical:       #e66767;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--page-plane); }
+
+  .viz-root {
+    background: var(--page-plane);
+    color: var(--text-primary);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 24px;
+    max-width: 920px;
+    margin: 0 auto;
+  }
+
+  h1 { font-size: 1.35rem; margin: 0 0 4px; }
+  .subtitle { color: var(--text-secondary); font-size: 0.9rem; margin: 0 0 20px; }
+  .disclaimer {
+    font-size: 0.78rem; color: var(--muted); margin: 4px 0 24px;
+    border-left: 3px solid var(--baseline); padding-left: 10px;
+  }
+
+  .downloads {
+    display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 24px;
+  }
+  .downloads a {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    text-decoration: none;
+  }
+  .downloads a:hover { border-color: var(--series-1); }
+  .downloads a .arrow { color: var(--series-1); }
+
+  .empty-note {
+    font-size: 0.85rem; color: var(--text-secondary);
+    background: var(--surface-1); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; margin-bottom: 20px;
+  }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
+    margin-bottom: 28px;
+  }
+  .stat-tile {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .stat-tile .label { font-size: 0.72rem; color: var(--text-secondary); margin-bottom: 4px; }
+  .stat-tile .value { font-size: 1.3rem; font-weight: 600; }
+  .stat-tile .value.good { color: var(--good); }
+
+  .panel {
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px 8px;
+    margin-bottom: 20px;
+    overflow-x: auto;
+  }
+  .panel h2 { font-size: 0.95rem; margin: 0 0 2px; }
+  .panel .panel-sub { font-size: 0.78rem; color: var(--text-secondary); margin: 0 0 10px; }
+
+  .legend { display: flex; gap: 16px; font-size: 0.78rem; color: var(--text-secondary); margin-bottom: 8px; }
+  .legend .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: middle; }
+
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .axis-label { fill: var(--muted); font-size: 10px; }
+  .axis-line { stroke: var(--baseline); stroke-width: 1; }
+  .grid-line { stroke: var(--grid); stroke-width: 1; }
+  .threshold-line { stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .threshold-label { fill: var(--text-secondary); font-size: 10px; }
+  .marker-line { stroke: var(--baseline); stroke-width: 1; stroke-dasharray: 3 3; }
+  .marker-label { fill: var(--text-secondary); font-size: 10px; }
+
+  .series-line { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .series-1 { stroke: var(--series-1); }
+  .series-2 { stroke: var(--series-2); }
+
+  .crosshair { stroke: var(--muted); stroke-width: 1; pointer-events: none; opacity: 0; }
+  .hover-dot { fill: var(--surface-1); stroke-width: 2; pointer-events: none; opacity: 0; }
+
+  .tooltip {
+    position: absolute;
+    pointer-events: none;
+    background: var(--surface-1);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 10px;
+    font-size: 0.75rem;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    opacity: 0;
+    transition: opacity 0.08s;
+    white-space: nowrap;
+    z-index: 10;
+  }
+  .tooltip .t-row { display: flex; justify-content: space-between; gap: 14px; }
+  .tooltip .t-label { color: var(--text-secondary); }
+  .tooltip-title { font-weight: 600; margin-bottom: 4px; }
+
+  .chart-wrap { position: relative; }
+
+  table.rep-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+  }
+  table.rep-table th, table.rep-table td {
+    text-align: right;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--grid);
+    font-variant-numeric: tabular-nums;
+  }
+  table.rep-table th:first-child, table.rep-table td:first-child { text-align: left; }
+  table.rep-table th {
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .status-pill {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+  }
+  .status-pill.GREEN { background: rgba(12,163,12,0.15); color: var(--good); }
+  .status-pill.YELLOW { background: rgba(250,178,25,0.18); color: #9a6a00; }
+  .status-pill.RED { background: rgba(208,59,59,0.15); color: var(--critical); }
+
+  footer.note { font-size: 0.72rem; color: var(--muted); margin-top: 8px; }
+</style>
+</head>
+<body>
+
+<div class="viz-root">
+  <h1>KinetIQ -- Session Report</h1>
+  <p class="subtitle" id="session-subtitle">Loading…</p>
+  <p class="disclaimer">Prototype: movement-quality / fatigue-proxy indicators only. Not a medical assessment and does not diagnose or predict injury.</p>
+
+  <div class="downloads" id="downloads"></div>
+
+  <div id="report-body"></div>
+</div>
+
+<script id="session-data" type="application/json">
+__SESSION_DATA_JSON__
+</script>
+
+<script>
+(function () {
+  const data = JSON.parse(document.getElementById('session-data').textContent);
+  const frames = data.frames || [];
+  const reps = data.reps || [];
+  const body = document.getElementById('report-body');
+
+  // ---------- download links (relative to this file, both live in data/) ----------
+  const downloads = document.getElementById('downloads');
+  if (data.per_frame_csv_name) {
+    const a = document.createElement('a');
+    a.href = data.per_frame_csv_name;
+    a.download = data.per_frame_csv_name;
+    a.innerHTML = '<span class="arrow">&#8595;</span> Per-frame CSV';
+    downloads.appendChild(a);
+  }
+  if (data.per_rep_csv_name) {
+    const a = document.createElement('a');
+    a.href = data.per_rep_csv_name;
+    a.download = data.per_rep_csv_name;
+    a.innerHTML = '<span class="arrow">&#8595;</span> Rep summary CSV';
+    downloads.appendChild(a);
+  }
+
+  if (frames.length === 0 && reps.length === 0) {
+    document.getElementById('session-subtitle').textContent = 'No data recorded for this session.';
+    return;
+  }
+
+  const trackingFrames = frames.filter(f => f.phase === 'tracking');
+  const tMin = frames.length ? frames[0].t : (reps.length ? reps[0].t : 0);
+  const tMax = frames.length ? frames[frames.length - 1].t : (reps.length ? reps[reps.length - 1].t : 1);
+  const durationSec = tMax - tMin;
+  const calDoneAt = trackingFrames.length ? trackingFrames[0].t : null;
+  const firstTracking = trackingFrames[0];
+
+  document.getElementById('session-subtitle').textContent =
+    `${durationSec.toFixed(0)}s session · ${reps.length} rep${reps.length === 1 ? '' : 's'} tracked` +
+    (frames.length ? ` · ${frames.length} frames analyzed` : ' · per-frame logging was off for this run');
+
+  // ---------- stat tiles ----------
+  const statRow = document.createElement('div');
+  statRow.className = 'stat-row';
+  const stats = [
+    ['Duration', `${durationSec.toFixed(0)}s`],
+    ['Reps completed', `${reps.length}`],
+  ];
+  if (firstTracking) {
+    stats.push(['Deep threshold', `${firstTracking.deep.toFixed(1)}°`]);
+    stats.push(['Shallow threshold', `${firstTracking.shallow.toFixed(1)}°`]);
+  }
+  if (frames.length) {
+    stats.push(['Overall status', frames[frames.length - 1].label]);
+  }
+  stats.forEach(([label, value]) => {
+    const tile = document.createElement('div');
+    tile.className = 'stat-tile';
+    const good = label === 'Overall status' && value === 'GREEN';
+    tile.innerHTML = `<div class="label">${label}</div><div class="value${good ? ' good' : ''}">${value}</div>`;
+    statRow.appendChild(tile);
+  });
+  body.appendChild(statRow);
+
+  // ---------- helpers ----------
+  function makeScale(domainMin, domainMax, rangeMin, rangeMax) {
+    const span = (domainMax - domainMin) || 1;
+    return v => rangeMin + ((v - domainMin) / span) * (rangeMax - rangeMin);
+  }
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+  function nearestFrame(list, t) {
+    let lo = 0, hi = list.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (list[mid].t < t) lo = mid + 1; else hi = mid;
+    }
+    return list[lo];
+  }
+  function makePanel(titleText, subText) {
+    const panel = document.createElement('div');
+    panel.className = 'panel';
+    const h2 = document.createElement('h2');
+    h2.textContent = titleText;
+    panel.appendChild(h2);
+    if (subText) {
+      const p = document.createElement('p');
+      p.className = 'panel-sub';
+      p.textContent = subText;
+      panel.appendChild(p);
+    }
+    return panel;
+  }
+
+  // ---------- line chart builder (angle / asymmetry) ----------
+  function buildLineChart(panel, { height, series, yDomain, yFormat, thresholds }) {
+    const wrap = document.createElement('div');
+    wrap.className = 'chart-wrap';
+    const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    svg.setAttribute('viewBox', `0 0 800 ${height}`);
+    svg.setAttribute('preserveAspectRatio', 'none');
+    const tooltip = document.createElement('div');
+    tooltip.className = 'tooltip';
+    wrap.appendChild(svg);
+    wrap.appendChild(tooltip);
+    panel.appendChild(wrap);
+
+    const width = 800;
+    const padLeft = 42, padRight = 16, padTop = 14, padBottom = 24;
+    const plotW = width - padLeft - padRight;
+    const plotH = height - padTop - padBottom;
+
+    const xScale = makeScale(tMin, tMax, padLeft, padLeft + plotW);
+    const yScale = makeScale(yDomain[0], yDomain[1], padTop + plotH, padTop);
+
+    const ticks = 4;
+    for (let i = 0; i <= ticks; i++) {
+      const v = yDomain[0] + (i / ticks) * (yDomain[1] - yDomain[0]);
+      const y = yScale(v);
+      svg.appendChild(svgEl('line', { x1: padLeft, x2: padLeft + plotW, y1: y, y2: y, class: 'grid-line' }));
+      const label = svgEl('text', { x: padLeft - 8, y: y + 3, class: 'axis-label', 'text-anchor': 'end' });
+      label.textContent = yFormat(v);
+      svg.appendChild(label);
+    }
+
+    svg.appendChild(svgEl('line', { x1: padLeft, x2: padLeft + plotW, y1: padTop + plotH, y2: padTop + plotH, class: 'axis-line' }));
+    const xTicks = 5;
+    for (let i = 0; i <= xTicks; i++) {
+      const v = tMin + (i / xTicks) * (tMax - tMin);
+      const x = xScale(v);
+      const label = svgEl('text', { x, y: height - 6, class: 'axis-label', 'text-anchor': 'middle' });
+      label.textContent = `${v.toFixed(0)}s`;
+      svg.appendChild(label);
+    }
+
+    if (calDoneAt !== null) {
+      const x = xScale(calDoneAt);
+      svg.appendChild(svgEl('line', { x1: x, x2: x, y1: padTop, y2: padTop + plotH, class: 'marker-line' }));
+      const lbl = svgEl('text', { x: x + 4, y: padTop + 10, class: 'marker-label' });
+      lbl.textContent = 'Calibrated';
+      svg.appendChild(lbl);
+    }
+    reps.forEach(r => {
+      const x = xScale(r.t);
+      svg.appendChild(svgEl('line', { x1: x, x2: x, y1: padTop, y2: padTop + plotH, class: 'marker-line' }));
+      const lbl = svgEl('text', { x: x + 4, y: padTop + 22, class: 'marker-label' });
+      lbl.textContent = `Rep ${r.idx}`;
+      svg.appendChild(lbl);
+    });
+
+    (thresholds || []).forEach(th => {
+      const y = yScale(th.value);
+      svg.appendChild(svgEl('line', { x1: padLeft, x2: padLeft + plotW, y1: y, y2: y, class: 'threshold-line' }));
+      const lbl = svgEl('text', { x: padLeft + plotW - 4, y: y - 4, class: 'threshold-label', 'text-anchor': 'end' });
+      lbl.textContent = th.label;
+      svg.appendChild(lbl);
+    });
+
+    series.forEach(s => {
+      let d = '';
+      s.points.forEach((f, i) => {
+        const x = xScale(f.t), y = yScale(s.accessor(f));
+        d += (i === 0 ? 'M' : 'L') + x.toFixed(1) + ' ' + y.toFixed(1) + ' ';
+      });
+      svg.appendChild(svgEl('path', { d, class: `series-line ${s.className}` }));
+    });
+
+    const crosshair = svgEl('line', { class: 'crosshair', y1: padTop, y2: padTop + plotH });
+    svg.appendChild(crosshair);
+    const dots = series.map(s => {
+      const dot = svgEl('circle', { r: 4, class: 'hover-dot' });
+      dot.style.stroke = `var(--${s.colorVar})`;
+      svg.appendChild(dot);
+      return dot;
+    });
+
+    function onMove(evt) {
+      const rect = svg.getBoundingClientRect();
+      const mx = evt.clientX - rect.left;
+      const relX = mx / rect.width * width;
+      const t = tMin + ((relX - padLeft) / plotW) * (tMax - tMin);
+      if (t < tMin || t > tMax) { hide(); return; }
+      const f = nearestFrame(frames, t);
+      const x = xScale(f.t);
+      crosshair.setAttribute('x1', x); crosshair.setAttribute('x2', x); crosshair.style.opacity = 1;
+
+      let rows = '';
+      series.forEach((s, i) => {
+        const y = yScale(s.accessor(f));
+        dots[i].setAttribute('cx', x); dots[i].setAttribute('cy', y); dots[i].style.opacity = 1;
+        rows += `<div class="t-row"><span class="t-label">${s.label}</span><strong>${s.format(s.accessor(f))}</strong></div>`;
+      });
+      tooltip.innerHTML = `<div class="tooltip-title">${f.t.toFixed(1)}s · ${f.phase}</div>${rows}`;
+      tooltip.style.opacity = 1;
+      const tw = tooltip.offsetWidth;
+      let left = (x / width) * rect.width + 12;
+      if (left + tw > rect.width) left = (x / width) * rect.width - tw - 12;
+      tooltip.style.left = left + 'px';
+      tooltip.style.top = '4px';
+    }
+    function hide() {
+      crosshair.style.opacity = 0;
+      dots.forEach(d => d.style.opacity = 0);
+      tooltip.style.opacity = 0;
+    }
+    svg.addEventListener('mousemove', onMove);
+    svg.addEventListener('mouseleave', hide);
+  }
+
+  if (frames.length > 0) {
+    const anglePanel = makePanel(
+      'Knee angle over time',
+      'Smoothed mean of left/right knee angle. Dashed lines mark your personalized calibration thresholds and each completed rep.'
+    );
+    body.appendChild(anglePanel);
+    const angleVals = frames.map(f => f.mean);
+    const angleMin = Math.min(...angleVals) - 8, angleMax = Math.max(...angleVals) + 8;
+    const thresholds = [];
+    if (firstTracking) {
+      thresholds.push({ value: firstTracking.deep, label: `Deep thr ${firstTracking.deep.toFixed(0)}°` });
+      thresholds.push({ value: firstTracking.shallow, label: `Shallow thr ${firstTracking.shallow.toFixed(0)}°` });
+    }
+    buildLineChart(anglePanel, {
+      height: 300,
+      series: [{ points: frames, accessor: f => f.mean, className: 'series-1', colorVar: 'series-1', label: 'Mean knee angle', format: v => v.toFixed(1) + '°' }],
+      yDomain: [angleMin, angleMax], yFormat: v => v.toFixed(0) + '°',
+      thresholds,
+    });
+
+    const asymPanel = makePanel(
+      'Left/right asymmetry over time',
+      'Absolute difference between smoothed left and right knee angle. Dashed line marks the flag threshold (12°).'
+    );
+    body.appendChild(asymPanel);
+    const asymVals = frames.map(f => f.asym);
+    const asymMax = Math.max(12 * 1.3, Math.max(...asymVals) * 1.15);
+    buildLineChart(asymPanel, {
+      height: 220,
+      series: [{ points: frames, accessor: f => f.asym, className: 'series-1', colorVar: 'series-1', label: 'Asymmetry', format: v => v.toFixed(1) + '°' }],
+      yDomain: [0, asymMax], yFormat: v => v.toFixed(0) + '°',
+      thresholds: [{ value: 12, label: 'Flag threshold 12°' }],
+    });
+  } else {
+    const note = document.createElement('div');
+    note.className = 'empty-note';
+    note.textContent = 'Per-frame logging was disabled for this run (--no-per-frame-log), so the angle/asymmetry timelines aren\'t available. Rep-level data below is still complete.';
+    body.appendChild(note);
+  }
+
+  if (reps.length > 0) {
+    const depthPanel = makePanel('Rep depth', 'Minimum smoothed knee angle reached during each rep — lower means deeper.');
+    body.appendChild(depthPanel);
+    (function buildDepthChart() {
+      const wrap = document.createElement('div');
+      wrap.className = 'chart-wrap';
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const width = 800, height = 220;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      wrap.appendChild(svg); wrap.appendChild(tooltip);
+      depthPanel.appendChild(wrap);
+
+      const padLeft = 42, padRight = 16, padTop = 14, padBottom = 30;
+      const plotW = width - padLeft - padRight;
+      const plotH = height - padTop - padBottom;
+
+      const depths = reps.map(r => r.depth);
+      const yMin = Math.min(...depths) - 10, yMax = Math.max(...depths) + 10;
+      const yScale = makeScale(yMin, yMax, padTop + plotH, padTop);
+
+      const ticks = 4;
+      for (let i = 0; i <= ticks; i++) {
+        const v = yMin + (i / ticks) * (yMax - yMin);
+        const y = yScale(v);
+        svg.appendChild(svgEl('line', { x1: padLeft, x2: padLeft + plotW, y1: y, y2: y, class: 'grid-line' }));
+        const label = svgEl('text', { x: padLeft - 8, y: y + 3, class: 'axis-label', 'text-anchor': 'end' });
+        label.textContent = v.toFixed(0) + '°';
+        svg.appendChild(label);
+      }
+      svg.appendChild(svgEl('line', { x1: padLeft, x2: padLeft + plotW, y1: padTop + plotH, y2: padTop + plotH, class: 'axis-line' }));
+
+      const bandW = plotW / reps.length;
+      const barW = Math.min(64, bandW * 0.5);
+      reps.forEach((r, i) => {
+        const cx = padLeft + bandW * (i + 0.5);
+        const yTop = yScale(r.depth);
+        const yBase = padTop + plotH;
+        const bar = svgEl('rect', { x: cx - barW / 2, y: yTop, width: barW, height: Math.max(yBase - yTop, 2), rx: 4, style: 'fill: var(--series-1)' });
+        svg.appendChild(bar);
+        const lbl = svgEl('text', { x: cx, y: height - 8, class: 'axis-label', 'text-anchor': 'middle' });
+        lbl.textContent = `Rep ${r.idx}`;
+        svg.appendChild(lbl);
+        const valLbl = svgEl('text', { x: cx, y: yTop - 6, class: 'axis-label', 'text-anchor': 'middle' });
+        valLbl.textContent = r.depth.toFixed(0) + '°';
+        valLbl.style.fill = 'var(--text-secondary)';
+        svg.appendChild(valLbl);
+
+        bar.addEventListener('mousemove', () => {
+          tooltip.innerHTML = `<div class="tooltip-title">Rep ${r.idx}</div>
+            <div class="t-row"><span class="t-label">Depth</span><strong>${r.depth.toFixed(1)}°</strong></div>
+            <div class="t-row"><span class="t-label">Duration</span><strong>${r.dur.toFixed(2)}s</strong></div>`;
+          tooltip.style.opacity = 1;
+          let left = (cx / width) * 100 + '%';
+          tooltip.style.left = `calc(${left} - ${tooltip.offsetWidth / 2}px)`;
+          tooltip.style.top = '4px';
+        });
+        bar.addEventListener('mouseleave', () => { tooltip.style.opacity = 0; });
+      });
+    })();
+
+    const durationPanel = makePanel('Rep duration breakdown', 'Total rep time split into eccentric (lowering) and concentric (rising) phases.');
+    const legend = document.createElement('div');
+    legend.className = 'legend';
+    legend.innerHTML = `
+      <span><span class="swatch" style="background: var(--series-1)"></span>Eccentric (lowering)</span>
+      <span><span class="swatch" style="background: var(--series-2)"></span>Concentric (rising)</span>`;
+    durationPanel.appendChild(legend);
+    body.appendChild(durationPanel);
+    (function buildDurationChart() {
+      const wrap = document.createElement('div');
+      wrap.className = 'chart-wrap';
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      const width = 800, height = 220;
+      svg.setAttribute('viewBox', `0 0 ${width} ${height}`);
+      svg.setAttribute('preserveAspectRatio', 'none');
+      const tooltip = document.createElement('div');
+      tooltip.className = 'tooltip';
+      wrap.appendChild(svg); wrap.appendChild(tooltip);
+      durationPanel.appendChild(wrap);
+
+      const padLeft = 42, padRight = 16, padTop = 14, padBottom = 30;
+      const plotW = width - padLeft - padRight;
+      const plotH = height - padTop - padBottom;
+
+      const totals = reps.map(r => r.ecc + r.con);
+      const yMax = Math.max(...totals) * 1.15;
+      const yScale = makeScale(0, yMax, padTop + plotH, padTop);
+
+      const ticks = 4;
+      for (let i = 0; i <= ticks; i++) {
+        const v = (i / ticks) * yMax;
+        const y = yScale(v);
+        svg.appendChild(svgEl('line', { x1: padLeft, x2: padLeft + plotW, y1: y, y2: y, class: 'grid-line' }));
+        const label = svgEl('text', { x: padLeft - 8, y: y + 3, class: 'axis-label', 'text-anchor': 'end' });
+        label.textContent = v.toFixed(1) + 's';
+        svg.appendChild(label);
+      }
+      svg.appendChild(svgEl('line', { x1: padLeft, x2: padLeft + plotW, y1: padTop + plotH, y2: padTop + plotH, class: 'axis-line' }));
+
+      const bandW = plotW / reps.length;
+      const barW = Math.min(64, bandW * 0.5);
+      const gap = 2;
+
+      reps.forEach((r, i) => {
+        const cx = padLeft + bandW * (i + 0.5);
+        const yBase = padTop + plotH;
+        const eccTop = yScale(r.ecc);
+        const conTop = yScale(r.ecc + r.con);
+
+        const eccBar = svgEl('rect', { x: cx - barW / 2, y: eccTop, width: barW, height: Math.max(yBase - eccTop - gap, 1), rx: 3, style: 'fill: var(--series-1)' });
+        const conBar = svgEl('rect', { x: cx - barW / 2, y: conTop, width: barW, height: Math.max(eccTop - conTop, 1), rx: 3, style: 'fill: var(--series-2)' });
+        svg.appendChild(eccBar);
+        svg.appendChild(conBar);
+
+        const lbl = svgEl('text', { x: cx, y: height - 8, class: 'axis-label', 'text-anchor': 'middle' });
+        lbl.textContent = `Rep ${r.idx}`;
+        svg.appendChild(lbl);
+
+        [eccBar, conBar].forEach(bar => {
+          bar.addEventListener('mousemove', () => {
+            tooltip.innerHTML = `<div class="tooltip-title">Rep ${r.idx}</div>
+              <div class="t-row"><span class="t-label">Eccentric</span><strong>${r.ecc.toFixed(2)}s</strong></div>
+              <div class="t-row"><span class="t-label">Concentric</span><strong>${r.con.toFixed(2)}s</strong></div>
+              <div class="t-row"><span class="t-label">Total</span><strong>${r.dur.toFixed(2)}s</strong></div>`;
+            tooltip.style.opacity = 1;
+            let left = (cx / width) * 100 + '%';
+            tooltip.style.left = `calc(${left} - ${tooltip.offsetWidth / 2}px)`;
+            tooltip.style.top = '4px';
+          });
+          bar.addEventListener('mouseleave', () => { tooltip.style.opacity = 0; });
+        });
+      });
+    })();
+
+    const tablePanel = makePanel('Rep summary table');
+    const table = document.createElement('table');
+    table.className = 'rep-table';
+    table.innerHTML = `
+      <thead><tr>
+        <th>Rep</th><th>Time (s)</th><th>Depth (°)</th><th>Duration (s)</th>
+        <th>Eccentric (s)</th><th>Concentric (s)</th><th>Speed</th><th>Status</th>
+      </tr></thead>
+      <tbody></tbody>`;
+    const tbody = table.querySelector('tbody');
+    reps.forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td>${r.idx}</td><td>${r.t.toFixed(1)}</td><td>${r.depth.toFixed(1)}</td><td>${r.dur.toFixed(2)}</td>
+        <td>${r.ecc.toFixed(2)}</td><td>${r.con.toFixed(2)}</td><td>${r.speed.toFixed(3)}</td>
+        <td><span class="status-pill ${r.label}">${r.label}</span></td>`;
+      tbody.appendChild(tr);
+    });
+    tablePanel.appendChild(table);
+    const footer = document.createElement('footer');
+    footer.className = 'note';
+    footer.textContent = 'Baseline established from the first 3 reps; drop/degradation flags only apply to reps after the baseline.';
+    tablePanel.appendChild(footer);
+    body.appendChild(tablePanel);
+  } else {
+    const note = document.createElement('div');
+    note.className = 'empty-note';
+    note.textContent = 'No reps were completed this session.';
+    body.appendChild(note);
+  }
+})();
+</script>
+</body>
+</html>

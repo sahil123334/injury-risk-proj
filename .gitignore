@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 .venv/
 data/*.csv
+data/*.html
+.DS_Store
+validation/clips/*.mp4
+validation/clips/*.mov

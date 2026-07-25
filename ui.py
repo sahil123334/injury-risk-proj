@@ -9,7 +9,7 @@ guarantees the camera feed is always shown, even on frames with no
 usable pose -- one of the bugs called out in the refactor brief.
 """
 
-from typing import Iterable, List, Optional
+from typing import Iterable, List, Optional, Tuple
 
 import cv2
 
@@ -19,9 +19,33 @@ STATUS_COLORS = {
     "RED": (0, 0, 255),
 }
 
+STOP_BUTTON_SIZE = (168, 46)  # (width, height) in pixels
+STOP_BUTTON_MARGIN = 16
+
 
 def draw_text(frame, text: str, x: int, y: int, size: float = 0.65, color=(255, 255, 255)) -> None:
     cv2.putText(frame, text, (x, y), cv2.FONT_HERSHEY_SIMPLEX, size, color, 2, cv2.LINE_AA)
+
+
+def draw_stop_button(frame, width: int, _height: int) -> Tuple[int, int, int, int]:
+    """
+    Draws a clickable-looking "End session" button in the top-right corner
+    and returns its (x1, y1, x2, y2) pixel bounds so main.py can hit-test
+    mouse clicks against it. Redrawn every frame since the frame width can
+    change (e.g. a differently-sized uploaded video).
+    """
+    btn_w, btn_h = STOP_BUTTON_SIZE
+    x2 = width - STOP_BUTTON_MARGIN
+    x1 = x2 - btn_w
+    y1 = STOP_BUTTON_MARGIN
+    y2 = y1 + btn_h
+
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 200), -1)
+    cv2.rectangle(frame, (x1, y1), (x2, y2), (255, 255, 255), 1, cv2.LINE_AA)
+    draw_text(frame, "END SESSION", x1 + 12, y1 + 20, 0.5)
+    draw_text(frame, "(or press Q)", x1 + 16, y1 + 38, 0.38, color=(225, 225, 225))
+
+    return (x1, y1, x2, y2)
 
 
 def draw_pose_landmarks(frame, landmarks, width: int, height: int) -> None:

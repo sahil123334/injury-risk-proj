@@ -1,4 +1,6 @@
-# Movement-Quality / Fatigue Monitor (Prototype)
+# KinetIQ
+
+Movement-quality / fatigue monitor (prototype).
 
 A webcam-based computer-vision prototype that tracks squat reps via
 lower-body pose estimation and surfaces early **movement-quality** and
@@ -12,8 +14,12 @@ lower-body pose estimation and surfaces early **movement-quality** and
 
 ## How it works
 
-1. Opens the webcam and reads frames continuously (camera feed always
-   stays visible, even when no reliable pose is found).
+0. On launch, a small picker window lets you choose **record live** or
+   **analyze an uploaded video file**. Everything downstream behaves
+   identically either way -- calibration, rep tracking, and risk scoring
+   only care about frames + elapsed time, not where they came from.
+1. Reads frames continuously (feed always stays visible, even when no
+   reliable pose is found).
 2. Runs MediaPipe Pose Landmarker on each frame.
 3. Computes left/right knee angles from hip-knee-ankle landmarks.
 4. Spends the first ~10 seconds of *valid pose time* calibrating to
@@ -23,6 +29,11 @@ lower-body pose estimation and surfaces early **movement-quality** and
 6. Once a 3-rep baseline is established, flags asymmetry, angle
    instability, shallower reps, and slower reps as they emerge.
 7. Logs a per-frame trace and a per-rep summary to CSV under `data/`.
+8. Click the **End Session** button in the top-right of the window (or
+   press `q`) to stop -- or just let an uploaded video play to its end.
+9. A native "Session Complete" window pops up with the headline numbers
+   (duration, reps, final status). Click **View full report** from there
+   to open the full HTML report (charts + CSV downloads) in your browser.
 
 ## Project layout
 
@@ -38,45 +49,74 @@ injury-risk-proj/
 ├── risk_engine.py           # movement-quality scoring (non-medical language)
 ├── ui.py                    # all on-screen overlays
 ├── data_logger.py           # CSV writers
+├── launcher.py               # startup picker window: record vs. upload
+├── video_source.py           # live camera / video file, same interface either way
+├── session_summary.py        # native "session complete" popup shown after each run
+├── report_generator.py      # builds the post-session HTML report from the CSVs
+├── report_template.html     # static shell/JS the report is built from
 ├── pose_landmarker.task     # MediaPipe model file
 ├── requirements.txt
-├── data/                    # session_metrics.csv + rep_summary.csv land here
+├── data/                    # session_metrics.csv, rep_summary.csv, session_report.html land here
 └── injury_risk_mvp_backup.py  # pre-refactor single-file version, kept for reference
 ```
 
 ## macOS setup
 
+**Use a Homebrew Python, not the system/Command Line Tools one.** macOS's
+built-in `python3` links against Apple's bundled Tcl/Tk 8.5, which has been
+deprecated since 2009 and has a well-known bug where native windows
+(the launcher, the session-complete popup) intermittently render blank
+on modern macOS even though they're fully present and clickable. A
+Homebrew Python links against a current Tk 8.6 instead, which doesn't
+have this problem.
+
 ```bash
+# 1. One-time: install a Homebrew Python with a modern Tk
+brew install python@3.11 python-tk@3.11
+
 cd injury-risk-proj
 
-# 1. Create and activate a virtual environment
-python3 -m venv .venv
+# 2. Create and activate a virtual environment from that Python
+/opt/homebrew/bin/python3.11 -m venv .venv
 source .venv/bin/activate
 
-# 2. Install dependencies
+# 3. Install dependencies
 pip install -r requirements.txt
 
-# 3. Run it
+# 4. Run it
 python main.py
 ```
 
-On first run, macOS will prompt for **Camera** permission for your
-terminal / IDE. If you don't see the prompt, grant it manually under
-**System Settings -> Privacy & Security -> Camera**.
+Every subsequent run just needs `source .venv/bin/activate` (or invoke
+`.venv/bin/python main.py` directly) -- no need to repeat the `brew
+install` or venv-creation steps.
+
+A picker window opens: choose **Record and get live feedback** (pick a
+camera if you have more than one) or **Upload a video file...** (opens a
+native file dialog). On first run with a live camera, macOS will prompt
+for **Camera** permission for your terminal / IDE. If you don't see the
+prompt, grant it manually under **System Settings -> Privacy & Security
+-> Camera**.
 
 ### Useful flags
 
 ```bash
 python main.py --debug              # print calibration/rep state transitions to the console
 python main.py --no-per-frame-log   # skip the per-frame CSV, keep only the per-rep summary
+python main.py --no-report          # skip generating the HTML report and the summary popup entirely
+python main.py --camera-index N     # record from this camera directly, skip the picker
+python main.py --video path/to.mp4  # analyze this video file directly, skip the picker
+python main.py --list-cameras       # print detected cameras and exit
 ```
 
-Press `q` with the camera window focused to quit at any time.
+Click **End Session** (top-right of the window) or press `q` to stop at
+any time -- or let an uploaded video play to its end.
 
 ## Output
 
 - `data/session_metrics.csv` — one row per analyzed frame (calibration + tracking phases).
 - `data/rep_summary.csv` — one row per completed rep: depth, total/eccentric/concentric duration, speed, and the movement-quality flags active at that moment.
+- `data/session_report.html` — charts for knee angle, asymmetry, and per-rep depth/duration, plus download buttons for both CSVs above. Regenerated (overwritten) every run; opened via the **View full report** button in the session-complete popup, not automatically.
 
 ## Known limitations (read before trusting the output)
 

@@ -25,6 +25,10 @@ DATA_DIR = os.path.join(PROJECT_ROOT, "data")
 PER_FRAME_CSV = os.path.join(DATA_DIR, "session_metrics.csv")
 PER_REP_CSV = os.path.join(DATA_DIR, "rep_summary.csv")
 
+REPORT_TEMPLATE_PATH = os.path.join(PROJECT_ROOT, "report_template.html")
+REPORT_OUTPUT_PATH = os.path.join(DATA_DIR, "session_report.html")
+AUTO_OPEN_REPORT = True  # open the HTML report in the default browser after each run
+
 
 # -----------------------------
 # CAMERA
@@ -43,7 +47,8 @@ class CameraConfig:
 
 CAMERA = CameraConfig()
 
-WINDOW_NAME = "Movement Quality Monitor"
+PRODUCT_NAME = "KinetIQ"
+WINDOW_NAME = PRODUCT_NAME
 
 # Some backends (e.g. AVFoundation bridging a Continuity Camera / iPhone) can
 # return a handful of failed reads right after opening before frames actually
