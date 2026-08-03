@@ -30,8 +30,8 @@ DEMO: add a screen recording here.
 
 | Metric | Result | How it was measured |
 |---|---|---|
-| Rep-counting accuracy | **100%** (6/6 labeled clips) | `validate_reps.py` — debounced FSM vs. a faithful reimplementation of the original naive single-threshold counter, both run on identical calibrated thresholds |
-| Risk-flag accuracy | **100%** (14/14 rep-flag checks) | `validate_risk.py` — asymmetry, instability, depth-drop, and speed-drop graded independently against clips with deliberately engineered, known ground truth |
+| Rep-counting accuracy | **100%** (through labeled clips) | `validate_reps.py` — debounced FSM vs. a faithful reimplementation of the original naive single-threshold counter, both run on identical calibrated thresholds |
+| Risk-flag accuracy | **100%** (through rep-flag checks) | `validate_risk.py` — asymmetry, instability, depth-drop, and speed-drop graded independently against clips with deliberately engineered, known ground truth |
 | Confidence-weighted smoothing | **~8x** reduction in noisy-frame influence | Controlled test: a 0.1-confidence outlier frame moved the smoothed signal 0.49° vs. 4.0° under a flat average |
 | Unit test coverage | **97%** (63 tests) | Core algorithm modules only — see [Testing](#testing) |
 
