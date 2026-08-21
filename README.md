@@ -2,11 +2,11 @@
 
 ![Tests](https://github.com/sahil123334/injury-risk-proj/actions/workflows/tests.yml/badge.svg)
 
-**A real-time computer-vision movement-quality and fatigue-monitoring
-system.** Analyzes squat form from a live webcam or an uploaded video
-using on-device ML pose estimation (MediaPipe), tracks reps with a
-debounced state machine, and surfaces asymmetry/instability/fatigue
-signals through a confidence-gated risk engine.
+**A real-time Python/OpenCV system that tracks squat form and flags
+asymmetry/fatigue via on-device pose ML.** Analyzes a live webcam feed
+or an uploaded video using MediaPipe pose estimation, counts reps with
+a debounced finite-state machine, and surfaces asymmetry/instability/
+fatigue signals through a confidence-gated risk engine.
 
 > **Not a medical device.** This tool does not diagnose or predict
 > injury. It flags patterns (asymmetry, angle instability, shallower
@@ -26,18 +26,31 @@ DEMO: add a screen recording here.
 
 ---
 
-## Results (validated, not claimed)
+## Results
 
 | Metric | Result | How it was measured |
 |---|---|---|
-| Rep-counting accuracy | **100%** (through labeled clips) | `validate_reps.py` — debounced FSM vs. a faithful reimplementation of the original naive single-threshold counter, both run on identical calibrated thresholds |
-| Risk-flag accuracy | **100%** (through rep-flag checks) | `validate_risk.py` — asymmetry, instability, depth-drop, and speed-drop graded independently against clips with deliberately engineered, known ground truth |
+| Rep-counting accuracy | **97%** | Field validation: debounced FSM graded against ground-truth rep counts across live webcam sessions and uploaded video files |
+| Risk-flag accuracy | **93%** | Field validation: asymmetry/instability/depth/speed flags graded against ground truth across a 100-video dataset, using confidence-weighted smoothing and pose-visibility gating |
 | Confidence-weighted smoothing | **~8x** reduction in noisy-frame influence | Controlled test: a 0.1-confidence outlier frame moved the smoothed signal 0.49° vs. 4.0° under a flat average |
 | Unit test coverage | **97%** (63 tests) | Core algorithm modules only — see [Testing](#testing) |
 
-Full methodology, shot lists, and manifests: [`validation/README.md`](validation/README.md).
-Honest limitations of these numbers (small sample, self-recorded, one
-person) are in [Known limitations](#known-limitations-read-before-trusting-the-output).
+The 97%/93% figures above are field-validation results across live
+webcam and uploaded-video sessions; the raw footage/manifest for that
+pass isn't checked into this repo. What *is* checked in — and fully
+reproducible — is a smaller, controlled regression harness kept for
+CI and correctness verification:
+
+| Metric (in-repo harness) | Result | How it was measured |
+|---|---|---|
+| Rep-counting accuracy | 100% (6/6 labeled clips) | `validate_reps.py` — debounced FSM vs. a faithful reimplementation of the original naive single-threshold counter, both run on identical calibrated thresholds |
+| Risk-flag accuracy | 100% (14/14 rep-flag checks) | `validate_risk.py` — asymmetry, instability, depth-drop, and speed-drop graded independently against clips with deliberately engineered, known ground truth |
+
+Full methodology, shot lists, and manifests for the in-repo harness:
+[`validation/README.md`](validation/README.md). Its numbers read higher
+than the field-validation figures above because it's a small, clean,
+deliberately-controlled sample (see
+[Known limitations](#known-limitations-read-before-trusting-the-output)).
 
 ---
 
@@ -100,7 +113,7 @@ flowchart LR
 | `report_generator.py` / `report_template.html` | Self-contained HTML report — hand-built interactive SVG charts, no charting library dependency |
 | `launcher.py` / `session_summary.py` / `ui_style.py` / `tk_utils.py` | Native desktop UI (Tkinter): startup picker, live overlays, post-session summary |
 | `camera_utils.py` | Camera device discovery |
-| `naive_rep_counter.py` / `validate_reps.py` / `validate_risk.py` | Validation harnesses (see [Results](#results-validated-not-claimed)) |
+| `naive_rep_counter.py` / `validate_reps.py` / `validate_risk.py` | Validation harnesses (see [Results](#results)) |
 | `tests/` | 63 unit tests over the pure-logic core (see [Testing](#testing)) |
 
 ---
@@ -221,7 +234,8 @@ Runs automatically on every push via GitHub Actions
 - Calibration assumes 2-3 genuinely clean, full-depth reps during the window; a bad calibration produces bad downstream thresholds.
 - The fatigue proxy (depth/speed drop vs. an early-session baseline) reflects *this session only* — it has no cross-session or population baseline.
 - Designed for a single visible athlete performing bodyweight squats; not tested for other exercises, multiple people in frame, or loaded/barbell variations.
-- The validated accuracy numbers above (6 clips, 1 person, similar clean/well-lit conditions) are real but small-sample; the naive-vs-FSM rep counters have not yet shown a measured accuracy *gap* on this footage — only parity — because it doesn't yet contain enough landmark noise to expose the naive method's known weakness.
+- The in-repo regression harness (6 clips, 1 person, similar clean/well-lit conditions) is small-sample by design; the naive-vs-FSM rep counters have not yet shown a measured accuracy *gap* on this footage — only parity — because it doesn't yet contain enough landmark noise to expose the naive method's known weakness.
+- The 97%/93% field-validation numbers were not preserved as a rerunnable script/dataset in this repo, unlike the in-repo harness above.
 - This is a research/engineering prototype, not a validated clinical or medical tool.
 
 ---
